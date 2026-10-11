@@ -34,4 +34,43 @@ public class ChamadosController : ControllerBase
 
         return CreatedAtAction(nameof(Get), new { id = chamado.Id }, chamado);
     }
+
+    [HttpGet("{id}")]
+    public IActionResult GetById(int id)
+    {
+        var chamado = Chamados.FirstOrDefault(c => c.Id == id);
+
+        if (chamado == null)
+            return NotFound();
+
+        return Ok(chamado);
+    }
+
+    [HttpPut("{id}")]
+    public IActionResult Put(int id, Chamado chamadoAtualizado)
+    {
+        var chamado = Chamados.FirstOrDefault(c => c.Id == id);
+
+        if (chamado == null)
+            return NotFound();
+
+        chamado.Titulo = chamadoAtualizado.Titulo;
+        chamado.Descricao = chamadoAtualizado.Descricao;
+        chamado.Status = chamadoAtualizado.Status;
+
+        return Ok(chamado);
+    }
+
+    [HttpDelete("{id}")]
+    public IActionResult Delete(int id)
+    {
+        var chamado = Chamados.FirstOrDefault(c => c.Id == id);
+
+        if (chamado == null)
+            return NotFound();
+
+        Chamados.Remove(chamado);
+
+        return NoContent();
+    }
 }
