@@ -1,5 +1,7 @@
-using Microsoft.AspNetCore.Mvc;
+using Api.Data;
 using Api.Models;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Api.Controllers;
 
@@ -7,69 +9,81 @@ namespace Api.Controllers;
 [Route("api/[controller]")]
 public class ChamadosController : ControllerBase
 {
-    private static readonly List<Chamado> Chamados =
-    [
-        new Chamado
-        {
-            Id = 1,
-            Titulo = "Impressora sem conexão",
-            Descricao = "A impressora do setor não imprime.",
-            Status = "Aberto"
-        }
-    ];
+    private readonly AppDbContext _context;
 
-    [HttpGet]
-    public IActionResult Get()
+    public ChamadosController(AppDbContext context)
     {
-        return Ok(Chamados);
+        _context = context;
     }
 
-    [HttpPost]
-    public IActionResult Post(Chamado chamado)
+    [HttpGet]
+    public async Task<IActionResult> Get()
     {
-        chamado.Id = Chamados.Max(c => c.Id) + 1;
-        chamado.DataCriacao = DateTime.Now;
+        var chamados = await _context.Chamados.ToListAsync();
 
-        Chamados.Add(chamado);
-
-        return CreatedAtAction(nameof(Get), new { id = chamado.Id }, chamado);
+        return Ok(chamados);
     }
 
     [HttpGet("{id}")]
-    public IActionResult GetById(int id)
+    public async Task<IActionResult> GetById(int id)
     {
-        var chamado = Chamados.FirstOrDefault(c => c.Id == id);
+        var chamado = await _context.Chamados.FindAsync(id);
 
         if (chamado == null)
+        {
             return NotFound();
+        }
 
         return Ok(chamado);
     }
 
-    [HttpPut("{id}")]
-    public IActionResult Put(int id, Chamado chamadoAtualizado)
+    [HttpPost]
+    public async Task<IActionResult> Post(Chamado chamado)
     {
-        var chamado = Chamados.FirstOrDefault(c => c.Id == id);
+        chamado.Id = 0;
+        chamado.DataCriacao = DateTime.Now;
+
+        _context.Chamados.Add(chamado);
+        await _context.SaveChangesAsync();
+
+        return CreatedAtAction(
+            nameof(GetById),
+            new { id = chamado.Id },
+            chamado
+        );
+    }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Put(int id, Chamado chamadoAtualizado)
+    {
+        var chamado = await _context.Chamados.FindAsync(id);
 
         if (chamado == null)
+        {
             return NotFound();
+        }
 
         chamado.Titulo = chamadoAtualizado.Titulo;
         chamado.Descricao = chamadoAtualizado.Descricao;
         chamado.Status = chamadoAtualizado.Status;
 
+        await _context.SaveChangesAsync();
+
         return Ok(chamado);
     }
 
     [HttpDelete("{id}")]
-    public IActionResult Delete(int id)
+    public async Task<IActionResult> Delete(int id)
     {
-        var chamado = Chamados.FirstOrDefault(c => c.Id == id);
+        var chamado = await _context.Chamados.FindAsync(id);
 
         if (chamado == null)
+        {
             return NotFound();
+        }
 
-        Chamados.Remove(chamado);
+        _context.Chamados.Remove(chamado);
+        await _context.SaveChangesAsync();
 
         return NoContent();
     }
