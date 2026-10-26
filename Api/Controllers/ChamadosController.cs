@@ -1,4 +1,5 @@
 using Api.Data;
+using Api.DTOs;
 using Api.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -31,46 +32,60 @@ public class ChamadosController : ControllerBase
 
         if (chamado == null)
         {
-            return NotFound();
+           return NotFound(new
+{
+    mensagem = $"Chamado com ID {id} não encontrado."
+});
         }
 
         return Ok(chamado);
     }
 
     [HttpPost]
-    public async Task<IActionResult> Post(Chamado chamado)
+public async Task<IActionResult> Post(CriarChamadoDto dto)
+{
+    var chamado = new Chamado
     {
-        chamado.Id = 0;
-        chamado.DataCriacao = DateTime.Now;
+        Titulo = dto.Titulo.Trim(),
+        Descricao = dto.Descricao.Trim(),
+        Status = dto.Status,
+        DataCriacao = DateTime.Now
+    };
 
-        _context.Chamados.Add(chamado);
-        await _context.SaveChangesAsync();
+    _context.Chamados.Add(chamado);
+    await _context.SaveChangesAsync();
 
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = chamado.Id },
-            chamado
-        );
-    }
+    return CreatedAtAction(
+        nameof(GetById),
+        new { id = chamado.Id },
+        chamado
+    );
+}
 
-    [HttpPut("{id}")]
-    public async Task<IActionResult> Put(int id, Chamado chamadoAtualizado)
+   [HttpPut("{id}")]
+public async Task<IActionResult> Put(
+    int id,
+    AtualizarChamadoDto dto
+)
+{
+    var chamado = await _context.Chamados.FindAsync(id);
+
+    if (chamado == null)
     {
-        var chamado = await _context.Chamados.FindAsync(id);
-
-        if (chamado == null)
+        return NotFound(new
         {
-            return NotFound();
-        }
-
-        chamado.Titulo = chamadoAtualizado.Titulo;
-        chamado.Descricao = chamadoAtualizado.Descricao;
-        chamado.Status = chamadoAtualizado.Status;
-
-        await _context.SaveChangesAsync();
-
-        return Ok(chamado);
+            mensagem = $"Chamado com ID {id} não encontrado."
+        });
     }
+
+    chamado.Titulo = dto.Titulo.Trim();
+    chamado.Descricao = dto.Descricao.Trim();
+    chamado.Status = dto.Status;
+
+    await _context.SaveChangesAsync();
+
+    return Ok(chamado);
+}
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
