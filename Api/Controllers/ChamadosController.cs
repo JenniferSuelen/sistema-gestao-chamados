@@ -18,12 +18,80 @@ public class ChamadosController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> Get()
+public async Task<IActionResult> Get(
+    [FromQuery] string? status,
+    [FromQuery] int pagina = 1,
+    [FromQuery] int tamanhoPagina = 10
+)
+{
+    if (pagina < 1)
     {
-        var chamados = await _context.Chamados.ToListAsync();
-
-        return Ok(chamados);
+        return BadRequest(new
+        {
+            mensagem = "A página deve ser maior ou igual a 1."
+        });
     }
+
+    if (tamanhoPagina < 1 || tamanhoPagina > 100)
+    {
+        return BadRequest(new
+        {
+            mensagem = "O tamanho da página deve estar entre 1 e 100."
+        });
+    }
+
+    var statusPermitidos = new[]
+    {
+        "Aberto",
+        "Em Andamento",
+        "Resolvido",
+        "Fechado"
+    };
+
+    if (!string.IsNullOrWhiteSpace(status) &&
+        !statusPermitidos.Contains(
+            status,
+            StringComparer.OrdinalIgnoreCase
+        ))
+    {
+        return BadRequest(new
+        {
+            mensagem = "O status deve ser: Aberto, Em Andamento, Resolvido ou Fechado."
+        });
+    }
+
+    var consulta = _context.Chamados
+        .AsNoTracking()
+        .AsQueryable();
+
+    if (!string.IsNullOrWhiteSpace(status))
+    {
+        consulta = consulta.Where(
+            chamado => chamado.Status.ToLower() == status.ToLower()
+        );
+    }
+
+    var totalRegistros = await consulta.CountAsync();
+
+    var chamados = await consulta
+        .OrderByDescending(chamado => chamado.DataCriacao)
+        .Skip((pagina - 1) * tamanhoPagina)
+        .Take(tamanhoPagina)
+        .ToListAsync();
+
+    var totalPaginas = (int)Math.Ceiling(
+        totalRegistros / (double)tamanhoPagina
+    );
+
+    return Ok(new
+    {
+        paginaAtual = pagina,
+        tamanhoPagina,
+        totalRegistros,
+        totalPaginas,
+        dados = chamados
+    });
+}
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
