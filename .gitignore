@@ -266,6 +266,9 @@ ClientBin/
 *.dbmdl
 *.dbproj.schemaview
 *.jfm
+*.db
+*.db-shm
+*.db-wal
 *.pfx
 *.publishsettings
 orleans.codegen.cs

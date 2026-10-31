@@ -24,11 +24,11 @@ public async Task<IActionResult> Get(
     [FromQuery] int tamanhoPagina = 10
 )
 {
-    if (pagina < 1)
+    if (pagina < 1 || pagina > 100000)
     {
         return BadRequest(new
         {
-            mensagem = "A página deve ser maior ou igual a 1."
+            mensagem = "A página deve estar entre 1 e 100000."
         });
     }
 
@@ -75,6 +75,7 @@ public async Task<IActionResult> Get(
 
     var chamados = await consulta
         .OrderByDescending(chamado => chamado.DataCriacao)
+        .ThenByDescending(chamado => chamado.Id)
         .Skip((pagina - 1) * tamanhoPagina)
         .Take(tamanhoPagina)
         .ToListAsync();

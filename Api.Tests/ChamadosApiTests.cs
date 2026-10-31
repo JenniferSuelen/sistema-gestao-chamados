@@ -1,18 +1,25 @@
 ﻿using System.Net;
 using System.Net.Http.Json;
+using Api.Data;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Api.Tests;
 
-public class ChamadosApiTests
-    : IClassFixture<CustomWebApplicationFactory>
+public class ChamadosApiTests : IDisposable
 {
+    private readonly CustomWebApplicationFactory _factory;
     private readonly HttpClient _client;
 
-    public ChamadosApiTests(
-        CustomWebApplicationFactory factory
-    )
+    public ChamadosApiTests()
     {
-        _client = factory.CreateClient();
+        _factory = new CustomWebApplicationFactory();
+        _client = _factory.CreateClient();
+    }
+
+    public void Dispose()
+    {
+        _client.Dispose();
+        _factory.Dispose();
     }
 
     [Fact]
@@ -271,6 +278,82 @@ public class ChamadosApiTests
             HttpStatusCode.BadRequest,
             resposta.StatusCode
         );
+    }
+
+    [Fact]
+    public async Task Get_ComPaginaAcimaDoLimite_DeveRetornarBadRequest()
+    {
+        var resposta = await _client.GetAsync(
+            "/api/Chamados?pagina=100001&tamanhoPagina=10"
+        );
+
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            resposta.StatusCode
+        );
+    }
+
+    [Fact]
+    public async Task Get_ComPaginaUm_DeveRetornarOk()
+    {
+        var resposta = await _client.GetAsync(
+            "/api/Chamados?pagina=1&tamanhoPagina=10"
+        );
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            resposta.StatusCode
+        );
+    }
+
+    [Fact]
+    public async Task Get_ComMesmaData_DeveOrdenarPorIdDecrescente()
+    {
+        var ids = new List<int>();
+        foreach (var titulo in new[] { "Chamado primeiro", "Chamado segundo" })
+        {
+            var respostaPost = await _client.PostAsJsonAsync(
+                "/api/Chamados",
+                new
+                {
+                    titulo,
+                    descricao = "Descrição válida para o teste de ordenação.",
+                    status = "Aberto"
+                }
+            );
+
+            Assert.Equal(HttpStatusCode.Created, respostaPost.StatusCode);
+
+            var chamado = await respostaPost.Content.ReadFromJsonAsync<ChamadoResposta>();
+            Assert.NotNull(chamado);
+            ids.Add(chamado.Id);
+        }
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var chamados = context.Chamados
+                .Where(chamado => ids.Contains(chamado.Id))
+                .ToList();
+            var mesmaData = new DateTime(2026, 1, 1);
+
+            foreach (var chamado in chamados)
+            {
+                chamado.DataCriacao = mesmaData;
+            }
+
+            await context.SaveChangesAsync();
+        }
+
+        var respostaGet = await _client.GetAsync(
+            "/api/Chamados?pagina=1&tamanhoPagina=10"
+        );
+
+        Assert.Equal(HttpStatusCode.OK, respostaGet.StatusCode);
+
+        var resultado = await respostaGet.Content.ReadFromJsonAsync<RespostaPaginada>();
+        Assert.NotNull(resultado);
+        Assert.Equal(ids.OrderByDescending(id => id), resultado.Dados.Select(chamado => chamado.Id));
     }
 }
 
